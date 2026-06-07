@@ -1,12 +1,6 @@
 (function() {
   'use strict';
 
-  var CONFIG = {
-    botId: '7648605237338718250',
-    apiToken: 'sat_XYf3UJR3nGWUnfn5qX6yCVx7AnAPyTiNYtQWDn1ikOJe9j6nYwoUGLb5SNSO5Zmm',
-    apiUrl: 'https://m9jyy5369h.coze.site/stream_run'
-  };
-
   var state = {
     currentPage: 'home',
     orders: JSON.parse(localStorage.getItem('lumguide_orders') || '[]'),
@@ -79,30 +73,17 @@
     if (el) el.remove();
   }
 
-  function callCozeAPI(query, onChunk, onDone, onError) {
-    var body = JSON.stringify({
-      content: {
-        query: {
-          prompt: [{ type: 'text', content: { text: query } }]
-        }
-      },
-      type: 'query',
-      session_id: state.sessionId,
-      project_id: parseInt(CONFIG.botId)
-    });
-
-    fetch(CONFIG.apiUrl, {
+  function callAI(message, onChunk, onDone, onError) {
+    fetch('/api/chat', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + CONFIG.apiToken,
-        'Content-Type': 'application/json'
-      },
-      body: body
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: message,
+        session_id: state.sessionId
+      })
     }).then(function(response) {
       if (!response.ok) {
-        response.text().then(function(t) {
-          onError(new Error('HTTP ' + response.status));
-        });
+        response.text().then(function(t) { onError(new Error(t.substring(0,100))); });
         return;
       }
       var reader = response.body.getReader();
@@ -112,41 +93,28 @@
 
       function processStream() {
         reader.read().then(function(result) {
-          if (result.done) {
-            onDone();
-            return;
-          }
+          if (result.done) { onDone(); return; }
           buffer += decoder.decode(result.value, { stream: true });
           var lines = buffer.split('\n');
           buffer = lines.pop() || '';
-
           for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim();
             if (line.startsWith('data: ')) {
               try {
                 var data = JSON.parse(line.substring(6));
                 if (data.type === 'answer' && data.content) {
-                  if (data.content.answer) {
-                    accumulatedText += data.content.answer;
-                    onChunk(accumulatedText);
-                  }
-                  if (data.finish) {
-                    onDone();
-                    return;
-                  }
+                  if (data.content.answer) accumulatedText += data.content.answer;
+                  onChunk(accumulatedText);
+                  if (data.finish) { onDone(); return; }
                 }
               } catch(e) {}
             }
           }
           processStream();
-        }).catch(function(err) {
-          onError(err);
-        });
+        }).catch(function(err) { onError(err); });
       }
       processStream();
-    }).catch(function(err) {
-      onError(err);
-    });
+    }).catch(function(err) { onError(err); });
   }
 
   function handleChatSubmit(e) {
@@ -163,12 +131,10 @@
 
     var botMsgDiv = null;
 
-    callCozeAPI(text,
+    callAI(text,
       function(fullText) {
         removeTypingIndicator();
-        if (!botMsgDiv) {
-          botMsgDiv = addMessage('bot', '');
-        }
+        if (!botMsgDiv) botMsgDiv = addMessage('bot', '');
         botMsgDiv.textContent = fullText;
         var c = $('#chat-messages');
         if (c) c.scrollTop = c.scrollHeight;
@@ -180,7 +146,7 @@
       function(err) {
         state.isTyping = false;
         removeTypingIndicator();
-        addMessage('bot', 'Sorry, I encountered an error. Please try again.');
+        addMessage('bot', 'Sorry, I encountered an error. Please try again later.');
       }
     );
   }
@@ -212,7 +178,7 @@
     container.innerHTML = state.orders.map(function(o) {
       return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">' +
         '<div style="color:var(--gold);font-weight:600;font-size:13px">' + o.id + '</div>' +
-        (o.items.product_type ? '<div style="font-size:13px;color:var(--text-muted);margin-top:4px">Product: ' + o.items.product_type + '</div>' : '') +
+        (o.items.product_type ? '<div style="font-size:13px;color:var(--text-muted);margin-top:4px">' + o.items.product_type + '</div>' : '') +
         '<div style="font-size:11px;color:var(--text-muted);margin-top:4px">' + new Date(o.date).toLocaleDateString() + '</div></div>';
     }).join('');
   }
