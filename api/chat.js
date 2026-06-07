@@ -43,7 +43,6 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    // Forward the SSE stream directly
     const reader = apiRes.body.getReader();
     const decoder = new TextDecoder();
     function pushChunk() {
