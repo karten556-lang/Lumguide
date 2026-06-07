@@ -1,5 +1,5 @@
-const COZE_API_TOKEN = 'pat_peLZUA1MPgx2K7AeLoobajYchQvhIzmtj3cKMUCqhaUelbAsqmuPSYMft6GEsvCl';
-const BOT_ID = '7648681998207197207';
+const COZE_API_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6ImNmMjZkN2M0LWM0NDctNGQwMS1hMGIwLWVhYjViNGY1ZDU5MCJ9.eyJpc3MiOiJodHRwczovL2FwaS5jb3plLmNuIiwiYXVkIjpbIldSQmNSckplU3R1TXNQd1ozQ2libHdBZEE4SURjOVJWIl0sImV4cCI6ODIxMDI2Njg3Njc5OSwiaWF0IjoxNzgwODM5NjQzLCJzdWIiOiJzcGlmZmU6Ly9hcGkuY296ZS5jbi93b3JrbG9hZF9pZGVudGl0eS9pZDo3NjQ4NjE1MTQ2MTYzNTM1OTE0Iiwic3JjIjoiaW5ib3VuZF9hdXRoX2FjY2Vzc190b2tlbl9pZDo3NjQ4NjQ4MDI5MzY0Mjg5NTcwIn0.NDmadZ7FJIEDraDjFQiL2QRuo92J1vNIDnQrSGE_2fcI-sBh2nj17Kp8A4lmZYL_lqH2w3QOglArxGXyYopJqlLBJasqLaeyHd3SzLeMhHzq1OoI7UM7iRh5NO0F1Je-KXCrjsyei18CsDNNORXmaVhtOA_igdVIx3d5EzwvgUtLQKvxL4o5fXTk3ODbb0Ghi0OQ_TEmTfd8GEM6WGOGTDWLASwXDRgRpg6uG5mh8IX3tmTO-cBAJeUeQkhG2cpZ3DOQ_JyrvTRE1vkuSPeqgbinareSQZt-PVN0DAolj-jIHUNh--MgRO4JfkEKEkLp3OZPQ90gTrmV1nfuH0mrkg';
+const BOT_ID = '7648605237338718250';
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
@@ -8,31 +8,22 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     return res.status(200).end();
   }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { message, session_id } = req.body;
-  if (!message) {
-    return res.status(400).json({ error: 'message is required' });
-  }
-
-  const userId = session_id || 'lum_' + Date.now().toString(36);
+  if (!message) return res.status(400).json({ error: 'message required' });
 
   const body = JSON.stringify({
-    bot_id: BOT_ID,
-    user_id: userId,
-    stream: true,
-    additional_messages: [{
-      role: 'user',
-      content: message,
-      content_type: 'text'
-    }]
+    content: { query: { prompt: [{ type: 'text', content: { text: message } }] } },
+    type: 'query',
+    session_id: session_id || 'lum_' + Date.now().toString(36),
+    project_id: parseInt(BOT_ID)
   });
 
   try {
-    const apiRes = await fetch('https://api.coze.cn/v3/chat', {
+    const apiRes = await fetch('https://m9jyy5369h.coze.site/stream_run', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + COZE_API_TOKEN,
@@ -52,32 +43,13 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
+    // Forward the SSE stream directly
     const reader = apiRes.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
-
     function pushChunk() {
       reader.read().then(({ done, value }) => {
         if (done) { res.end(); return; }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (line.startsWith('data:')) {
-            try {
-              const parsed = JSON.parse(line.substring(5).trim());
-              if (parsed.event === 'conversation.message.delta' || 
-                  parsed.event === 'conversation.message.completed') {
-                const content = parsed.data?.content || parsed.data?.msg?.content || '';
-                if (content) {
-                  res.write(line + '\n\n');
-                }
-              }
-            } catch(e) {}
-          }
-        }
+        res.write(decoder.decode(value, { stream: true }));
         pushChunk();
       }).catch(() => { res.end(); });
     }

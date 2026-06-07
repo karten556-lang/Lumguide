@@ -86,7 +86,7 @@
       var reader = response.body.getReader();
       var decoder = new TextDecoder();
       var buffer = '';
-      var accumulatedText = '';
+      var fullText = '';
 
       function processStream() {
         reader.read().then(function(result) {
@@ -99,13 +99,11 @@
             if (line.startsWith('data: ')) {
               try {
                 var data = JSON.parse(line.substring(6));
-                if (data.event === 'conversation.message.delta' && data.data && data.data.content) {
-                  accumulatedText += data.data.content;
-                  onChunk(accumulatedText);
+                if (data.type === 'answer' && data.content && data.content.answer) {
+                  fullText += data.content.answer;
+                  onChunk(fullText);
                 }
-                if (data.event === 'conversation.chat.completed') {
-                  onDone(); return;
-                }
+                if (data.finish) { onDone(); return; }
               } catch(e) {}
             }
           }
