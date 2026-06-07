@@ -77,10 +77,7 @@
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: message,
-        session_id: state.sessionId
-      })
+      body: JSON.stringify({ message: message, session_id: state.sessionId })
     }).then(function(response) {
       if (!response.ok) {
         response.text().then(function(t) { onError(new Error(t.substring(0,100))); });
@@ -102,10 +99,12 @@
             if (line.startsWith('data: ')) {
               try {
                 var data = JSON.parse(line.substring(6));
-                if (data.type === 'answer' && data.content) {
-                  if (data.content.answer) accumulatedText += data.content.answer;
+                if (data.event === 'conversation.message.delta' && data.data && data.data.content) {
+                  accumulatedText += data.data.content;
                   onChunk(accumulatedText);
-                  if (data.finish) { onDone(); return; }
+                }
+                if (data.event === 'conversation.chat.completed') {
+                  onDone(); return;
                 }
               } catch(e) {}
             }
@@ -123,14 +122,11 @@
     if (!input) return;
     var text = input.value.trim();
     if (!text || state.isTyping) return;
-
     addMessage('user', text);
     input.value = '';
     state.isTyping = true;
     addTypingIndicator();
-
     var botMsgDiv = null;
-
     callAI(text,
       function(fullText) {
         removeTypingIndicator();
@@ -139,15 +135,8 @@
         var c = $('#chat-messages');
         if (c) c.scrollTop = c.scrollHeight;
       },
-      function() {
-        state.isTyping = false;
-        removeTypingIndicator();
-      },
-      function(err) {
-        state.isTyping = false;
-        removeTypingIndicator();
-        addMessage('bot', 'Sorry, I encountered an error. Please try again later.');
-      }
+      function() { state.isTyping = false; removeTypingIndicator(); },
+      function(err) { state.isTyping = false; removeTypingIndicator(); addMessage('bot', 'Sorry, an error occurred. Please try again.'); }
     );
   }
 
@@ -164,7 +153,7 @@
     state.orders.unshift(order);
     localStorage.setItem('lumguide_orders', JSON.stringify(state.orders));
     form.reset();
-    showToast('Request submitted! We\'ll get back to you soon.');
+    showToast('Submitted! We\'ll respond within 24 hours.');
     renderOrders();
   }
 
