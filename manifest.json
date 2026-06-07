@@ -2,14 +2,14 @@
   "name": "LUMGUIDE - AI Lighting Sourcing Agent",
   "short_name": "LUMGUIDE",
   "description": "AI-powered lighting sourcing from Zhongshan, China. Tell us what you need, we match you with the right factory.",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#f59e0b",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/icon.svg",
+      "src": "icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
