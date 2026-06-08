@@ -142,19 +142,25 @@
     e.preventDefault();
     var form = e.target;
     var data = new FormData(form);
-    var order = {
-      id: 'ORD-' + Date.now().toString(36).toUpperCase(),
-      date: new Date().toISOString(),
-      status: 'pending',
-      items: Object.fromEntries(data.entries())
-    };
+    var items = Object.fromEntries(data.entries());
+    var orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
+    items.status = 'pending';
+    var order = { id: orderId, date: new Date().toISOString(), status: 'pending', items: items };
+
     state.orders.unshift(order);
     localStorage.setItem('lumguide_orders', JSON.stringify(state.orders));
+
+    // Send to API
+    fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items, orderId: orderId })
+    }).catch(function() {});
+
     form.reset();
     showToast('Submitted! We\'ll respond within 24 hours.');
     renderOrders();
   }
-
   function renderOrders() {
     var container = $('#orders-list');
     if (!container) return;
