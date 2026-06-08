@@ -80,40 +80,29 @@
       body: JSON.stringify({ message: message, session_id: state.sessionId })
     }).then(function(response) {
       if (!response.ok) {
-        response.text().then(function(t) { onError(new Error(t.substring(0,100))); });
-        return;
+        return response.text().then(function(t) { onError(new Error(t.substring(0,100))); });
       }
-      var reader = response.body.getReader();
-      var decoder = new TextDecoder();
-      var buffer = '';
-      var fullText = '';
-
-      function processStream() {
-        reader.read().then(function(result) {
-          if (result.done) { onDone(); return; }
-          buffer += decoder.decode(result.value, { stream: true });
-          var lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim();
-            if (line.startsWith('data: ')) {
-              try {
-                var data = JSON.parse(line.substring(6));
-                if (data.type === 'answer' && data.content && data.content.answer) {
-                  fullText += data.content.answer;
-                  onChunk(fullText);
-                }
-                if (data.finish) { onDone(); return; }
-              } catch(e) {}
-            }
+      response.text().then(function(text) {
+        var lines = text.split('\n');
+        var fullText = '';
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (line.startsWith('data: ')) {
+            try {
+              var data = JSON.parse(line.substring(6));
+              if (data.type === 'answer' && data.content && data.content.answer) {
+                fullText += data.content.answer;
+              }
+            } catch(e) {}
           }
-          processStream();
-        }).catch(function(err) { onError(err); });
-      }
-      processStream();
+        }
+        if (fullText) {
+          onChunk(fullText);
+        }
+        onDone();
+      }).catch(function(err) { onError(err); });
     }).catch(function(err) { onError(err); });
   }
-
   function handleChatSubmit(e) {
     if (e) e.preventDefault();
     var input = $('#chat-input');
