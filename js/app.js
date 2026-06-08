@@ -74,34 +74,36 @@
   }
 
   function callAI(message, onChunk, onDone, onError) {
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: message, session_id: state.sessionId })
-    }).then(function(response) {
-      if (!response.ok) {
-        return response.text().then(function(t) { onError(new Error(t.substring(0,100))); });
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/chat', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.responseType = 'text';
+
+    var fullText = '';
+    var lastIndex = 0;
+
+    xhr.onprogress = function() {
+      var newData = xhr.responseText.substring(lastIndex);
+      lastIndex = xhr.responseText.length;
+      var lines = newData.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.startsWith('data: ')) {
+          try {
+            var data = JSON.parse(line.substring(6));
+            if (data.type === 'answer' && data.content && data.content.answer) {
+              fullText += data.content.answer;
+              onChunk(fullText);
+            }
+          } catch(e) {}
+        }
       }
-      response.text().then(function(text) {
-        var lines = text.split('\n');
-        var fullText = '';
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i].trim();
-          if (line.startsWith('data: ')) {
-            try {
-              var data = JSON.parse(line.substring(6));
-              if (data.type === 'answer' && data.content && data.content.answer) {
-                fullText += data.content.answer;
-              }
-            } catch(e) {}
-          }
-        }
-        if (fullText) {
-          onChunk(fullText);
-        }
-        onDone();
-      }).catch(function(err) { onError(err); });
-    }).catch(function(err) { onError(err); });
+    };
+
+    xhr.onload = function() { onDone(); };
+    xhr.onerror = function() { onError(new Error('Network error')); };
+
+    xhr.send(JSON.stringify({ message: message, session_id: state.sessionId }));
   }
   function handleChatSubmit(e) {
     if (e) e.preventDefault();
