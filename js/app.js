@@ -81,6 +81,7 @@
 
     var fullText = '';
     var lastIndex = 0;
+    var lastUpdate = 0;
 
     xhr.onprogress = function() {
       var newData = xhr.responseText.substring(lastIndex);
@@ -93,14 +94,22 @@
             var data = JSON.parse(line.substring(6));
             if (data.type === 'answer' && data.content && data.content.answer) {
               fullText += data.content.answer;
-              onChunk(fullText);
             }
           } catch(e) {}
         }
       }
+      // Update the display every ~1 second to batch words together
+      var now = Date.now();
+      if (now - lastUpdate > 1000 && fullText.length > 20) {
+        lastUpdate = now;
+        onChunk(fullText);
+      }
     };
 
-    xhr.onload = function() { onDone(); };
+    xhr.onload = function() { 
+      if (fullText) onChunk(fullText);
+      onDone(); 
+    };
     xhr.onerror = function() { onError(new Error('Network error')); };
 
     xhr.send(JSON.stringify({ message: message, session_id: state.sessionId }));
