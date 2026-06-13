@@ -161,7 +161,7 @@ label {
 .main {
   margin-top: var(--header-h);
   overflow-y: auto;
-  min-height: calc(100vh - var(--header-h));
+  
   padding: 24px 20px;
 }
 
