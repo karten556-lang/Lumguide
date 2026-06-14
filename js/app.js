@@ -92,23 +92,28 @@
         if (line.startsWith('data: ')) {
           try {
             var data = JSON.parse(line.substring(6));
-            if (data.type === 'answer' && data.content && data.content.answer) {
-              fullText += data.content.answer;
+            if (data.type === 'answer') {
+              var answer = data.content ? (typeof data.content === 'string' ? data.content : data.content.answer || '') : data.answer || ''; if (answer) fullText += answer;
             }
           } catch(e) {}
         }
       }
       // Update the display every ~1 second to batch words together
       var now = Date.now();
-      if (now - lastUpdate > 1000 && fullText.length > 20) {
+      if (now - lastUpdate > 1000 && fullText.length > 0) {
         lastUpdate = now;
         onChunk(fullText);
       }
     };
 
-    xhr.onload = function() { 
-      if (fullText) onChunk(fullText);
-      onDone(); 
+    xhr.onload = function() {
+      if (fullText) {
+        onChunk(fullText);
+      } else if (xhr.status !== 200) {
+        onError(new Error('AI service error (' + xhr.status + ')'));
+        return;
+      }
+      onDone();
     };
     xhr.onerror = function() { onError(new Error('Network error')); };
 
